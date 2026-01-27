@@ -1,0 +1,4 @@
+- Clone repository atau download zip
+- Buat database baru melalui phpMyAdmin, lalu import dompet.sql 
+- Rename config-example.php menjadi config.php lalu sesuaikan isinya
+- Akses webnya, register pengguna baru
