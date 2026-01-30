@@ -2,6 +2,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth.php';
 require_login();
+$uid = $_SESSION['user_id'] ?? 0;
 $userName = $_SESSION['user_name'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -40,18 +41,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         $fingerprint = json_encode($fp, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        $stmt = $db->prepare('INSERT INTO kategori (nama_kategori, tipe, fingerprint) VALUES (:nama, :tipe, :fingerprint)');
-        $stmt->execute([':nama' => $nama, ':tipe' => $tipe, ':fingerprint' => $fingerprint]);
+        $stmt = $db->prepare('INSERT INTO kategori (nama_kategori, tipe, fingerprint, id_user) VALUES (:nama, :tipe, :fingerprint, :uid)');
+        $stmt->execute([':nama' => $nama, ':tipe' => $tipe, ':fingerprint' => $fingerprint, ':uid' => $uid]);
     } elseif ($action === 'update') {
         $id = (int)($_POST['id_kategori'] ?? 0);
         $nama = trim($_POST['nama_kategori'] ?? '');
         $tipe = $_POST['tipe'] ?? 'pengeluaran';
-        $stmt = $db->prepare('UPDATE kategori SET nama_kategori = :nama, tipe = :tipe WHERE id_kategori = :id');
-        $stmt->execute([':nama' => $nama, ':tipe' => $tipe, ':id' => $id]);
+        $stmt = $db->prepare('UPDATE kategori SET nama_kategori = :nama, tipe = :tipe WHERE id_kategori = :id AND id_user = :uid');
+        $stmt->execute([':nama' => $nama, ':tipe' => $tipe, ':id' => $id, ':uid' => $uid]);
     } elseif ($action === 'delete') {
         $id = (int)($_POST['id_kategori'] ?? 0);
-        $stmt = $db->prepare('DELETE FROM kategori WHERE id_kategori = :id');
-        $stmt->execute([':id' => $id]);
+        $stmt = $db->prepare('DELETE FROM kategori WHERE id_kategori = :id AND id_user = :uid');
+        $stmt->execute([':id' => $id, ':uid' => $uid]);
     }
 
     header('Location: kategori.php');
@@ -60,7 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $categories = [];
 try {
-    $stmt = $db->query('SELECT * FROM kategori ORDER BY id_kategori DESC');
+    $stmt = $db->prepare('SELECT * FROM kategori WHERE id_user = :uid ORDER BY id_kategori DESC');
+    $stmt->execute([':uid' => $uid]);
     $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     // jika tabel belum ada atau error, hasil kosong — tetap tampilkan UI

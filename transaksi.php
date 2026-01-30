@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $jenis = $_POST['jenis'] ?? 'pengeluaran';
         $id_kategori = (int)($_POST['id_kategori'] ?? 0);
         $id_dompet = (int)($_POST['id_dompet'] ?? 0);
+        $uraian = trim($_POST['uraian'] ?? '');
 
         try {
             $db->beginTransaction();
@@ -25,13 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dom = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$dom) throw new Exception('Dompet tidak ditemukan');
 
-            $stmt = $db->prepare('INSERT INTO transaksi (jumlah, tanggal, jenis, id_kategori, id_dompet) VALUES (:jumlah, :tanggal, :jenis, :id_kategori, :id_dompet)');
+            $stmt = $db->prepare('INSERT INTO transaksi (jumlah, tanggal, jenis, id_kategori, id_dompet, uraian) VALUES (:jumlah, :tanggal, :jenis, :id_kategori, :id_dompet, :uraian)');
             $stmt->execute([
                 ':jumlah' => $jumlah,
                 ':tanggal' => $tanggal,
                 ':jenis' => $jenis,
                 ':id_kategori' => $id_kategori,
                 ':id_dompet' => $id_dompet,
+                ':uraian' => $uraian,
             ]);
 
             // hitung delta terhadap saldo_akhir
@@ -82,7 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ambil daftar kategori (semua)
 $categories = [];
 try {
-    $stmt = $db->query('SELECT * FROM kategori ORDER BY nama_kategori ASC');
+    $stmt = $db->prepare('SELECT * FROM kategori WHERE id_user = :uid ORDER BY nama_kategori ASC');
+    $stmt->execute([':uid' => $uid]);
     $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {}
 
@@ -97,7 +100,7 @@ try {
 // ambil transaksi yang terkait dengan dompet user
 $transactions = [];
 try {
-    $stmt = $db->prepare('SELECT t.*, k.nama_kategori, d.nama_dompet FROM transaksi t JOIN kategori k ON t.id_kategori = k.id_kategori JOIN dompet d ON t.id_dompet = d.id_dompet WHERE d.id_user = :uid ORDER BY t.tanggal DESC, t.id_transaksi DESC');
+    $stmt = $db->prepare('SELECT t.*, k.nama_kategori, d.nama_dompet FROM transaksi t JOIN kategori k ON t.id_kategori = k.id_kategori AND k.id_user = :uid JOIN dompet d ON t.id_dompet = d.id_dompet WHERE d.id_user = :uid ORDER BY t.tanggal DESC, t.id_transaksi DESC');
     $stmt->execute([':uid' => $uid]);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {}
@@ -166,6 +169,7 @@ try {
                         <th>Tanggal</th>
                         <th>Jumlah</th>
                         <th>Jenis</th>
+                        <th>Uraian</th>
                         <th>Kategori</th>
                         <th>Dompet</th>
                         <th>Aksi</th>
@@ -179,6 +183,7 @@ try {
                             <td><?= htmlspecialchars($row['tanggal']) ?></td>
                             <td><?= number_format($row['jumlah'], 2, ',', '.') ?></td>
                             <td><?= htmlspecialchars($row['jenis']) ?></td>
+                            <td><?= htmlspecialchars($row['uraian']) ?></td>
                             <td><?= htmlspecialchars($row['nama_kategori']) ?></td>
                             <td><?= htmlspecialchars($row['nama_dompet']) ?></td>
                             <td>
@@ -192,7 +197,7 @@ try {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center">Belum ada transaksi.</td>
+                            <td colspan="8" class="text-center">Belum ada transaksi.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -226,6 +231,10 @@ try {
                         <option value="pemasukan">Pemasukan</option>
                         <option value="pengeluaran" selected>Pengeluaran</option>
                     </select>
+                </div>
+                <div class="mb-3">
+                    <label for="uraian" class="form-label">Uraian</label>
+                    <textarea class="form-control" id="uraian" name="uraian" rows="2" placeholder="Uraian singkat transaksi"></textarea>
                 </div>
                 <div class="mb-3">
                     <label for="id_kategori" class="form-label">Kategori</label>
